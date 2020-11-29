@@ -8,6 +8,8 @@ def playGame():
     width = 700+2*margin
     runApp(width=width, height=height, title='Game') 
 
+def appStarted(app):
+    
 #################################################
 # main
 #################################################
