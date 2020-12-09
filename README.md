@@ -9,5 +9,4 @@ Download the termproject.py and cmu_112_graphics.py to run project.
 No libraries needed
 
 # A list of any shortcut commands that exist
-Click 'o' to change modes
-Click 'r' to restart game
+Click 'o' to change modes. Click 'r' to restart game.
