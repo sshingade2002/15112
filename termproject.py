@@ -1,6 +1,6 @@
 import math, copy, random
 from cmu_112_graphics import *
-
+import tkinter as tk
 class Arrow(object):
     weight = 22.68 # grams
     def __init__(self, x, y, angle):
@@ -59,15 +59,17 @@ def appStarted(app):
 
     app.target1 = Target(3)
     app.xRange = (app.width-app.margin-30-(app.width-app.margin*2)//2,app.width-app.margin-30)
-    app.yRange = (app.margin+30,app.height-app.margin-30)
+    upperlimit = app.height-app.margin-30*app.target1.rings
+    lowerlimit = app.margin + 30*app.target1.rings
+    app.yRange = (lowerlimit,upperlimit)
     app.target1.generateRandomLocation(app.xRange, app.yRange)
 
     app.arrowPresent = False
     app.shoot = False
     ###################
-    app.timerDelay = 50
+    app.timerDelay = 100
     ####################
-    app.timer = 55*1000
+    app.timer = 40*1000
     
     app.trajectoryCirlces = []
     
@@ -90,18 +92,23 @@ def appStarted(app):
     app.windAngle = 0
     app.angleQuadrant = 0
     app.targetIncrement = 10
-    app.powerInc = 10
+    app.powerInc = 5
 
     app.babyAIpopup = True
     app.aiTrajectory = []
     app.aiarrow = Arrow(app.startPostion[0], app.startPostion[1], 0)
     app.aiTurn = False
+    app.targetLocations = set()
+    app.lenLast = 0
+    app.airounds =  1
+    app.timeTime = 0
+    app.aiLaunch = False
+    app.aiyposition = 0
     
 
-def findOptimalStationary(app):
+def findOptimalStationary(app, targetx, targety):
         arrow = app.aiarrow
-        targetx = app.target1.x
-        targety = app.target1.y
+        
         upperRangeLim = int((math.pi/2)/(app.incrementAngle))
         for angleF in range(1, upperRangeLim):
             angle = app.incrementAngle*angleF
@@ -110,7 +117,7 @@ def findOptimalStationary(app):
                 x,y = app.startPostion
                 arrow.angle = angle
                 arrow.findInitialSpeed(power)
-
+                
                 a=9.81
                 velocity = arrow.v0
                 vx=velocity * math.cos(angle)
@@ -127,21 +134,75 @@ def findOptimalStationary(app):
                 if targetx-10 <= dx <= targetx+10:
                     dy = y-(vy*t - (a/2)*t*t)
                     if targety-10 <= dy <= targety+10:
+                        app.timeTime = time 
                         return (power, angle)
 
         return None
+
+def findOpMoving(app):
+    target = app.target1
+    xcst = target.x
+    upperlimit = app.height-app.margin-30*target.rings*2
+    lowerlimit = app.margin + 30*target.rings*2
+    app.aiyposition = random.randint(lowerlimit, upperlimit)
+    opower, oangel = findOptimalStationary(app,xcst, app.aiyposition)
+    app.ypos = 1
+    app.aiarrow.angle = oangel
+    app.aiarrow.findInitialSpeed(opower)
+    print(app.timeTime)
+    
+
 
 
 def timerFired(app):
     if not app.waitingForKeyPress:
         if app.babyAI:
+            if app.airounds > 0:
+                updateTargetPosition(app)
+                
+                    
+            if app.timer//1000 >= 60:
+                if not app.aiTurn:
+                    app.ypos = 1
+                    app.arrowPresent = True
+                    app.aiarrow.v0 = 0
+                    app.aiarrow.x, app.aiarrow.y = app.startPostion
+                    app.aiTrajectory = []
+                else:
+                    app.arrowPresent = False
+                    app.trajectoryCirlces = []
+                    app.arrow.x, app.arrow.y = app.startPostion
+                    app.shoot = False
+                    app.arrow.v0 = 0
+
+                app.target1.generateRandomLocation(app.xRange, app.yRange)
+                app.shootTimer = 0
+                app.arrow.v0 = 0
+                app.timer = 40*1000
+                app.aiTurn = not app.aiTurn
+                app.score = 0
+                app.targetLocations = set()
+            app.timer += app.timerDelay
+
             if app.aiTurn:
-                levelOneai(app)
-                app.timer += app.timerDelay
+                if app.aiarrow.v0 == 0 and app.babyAILevel == 1 and app.airounds > 0 :
+                    findOpMoving(app)
+                    # print(app.timeTime)
+                else:
+                    if app.aiarrow.v0 == 0 and app.babyAILevel == 1:
+                        aiPandA(app, 10, 2)
+                    elif app.aiarrow.v0 == 0 and app.babyAILevel == 2:
+                        aiPandA(app, 10, 2)
+                if app.airounds > 0:
+                    if app.aiLaunch:
+                        levelOneai(app)
+                        # app.aiLaunch = False
+                else:
+                    levelOneai(app)
             else:
                 levelOne(app)
         else:
-            if app.level == 2 or app.level == 3 and app.score == 0:
+            if app.level == 2 or app.level == 3:
                 updateTargetPosition(app)
             if app.arrowPresent:
                 if app.timer//1000 >= 60:
@@ -156,8 +217,9 @@ def timerFired(app):
                 elif app.level == 3:
                     levelThree(app)
 
+
 def levelOneai(app):
-    if app.ypos == 1 and app.aiTurn:
+    if app.ypos == 1 and app.aiTurn and app.aiLaunch:
         app.shootTimer += app.timerDelay
         app.aiTrajectory.append((app.aiarrow.x, app.aiarrow.y))
         updateAIArrowPostion(app)
@@ -188,22 +250,25 @@ def updateAIArrowPostion(app):
     
     if dy > y or dy < 0:
         # app.ypos = 0
-        app.aiTurn = False
+        # app.aiTurn = False
         app.level = 1
-        app.ypos = 1
-        app.timer = 0
+        # app.ypos = 1
+        # app.timer = 55*1000
+
         app.score = 0
-        app.arrow.v0 = 0
-        print(app.aiTrajectory)
+        app.aiarrow.v0 = 0
+        app.aiarrow.x, app.aiarrow.y = app.startPostion
+        app.aiTrajectory = []
+        app.shootTimer = 0
+        app.aiLaunch = False
+        # print(app.aiTrajectory)
     
 
 def checkAIIfHit(app):
     target = app.target1
     # print(target.x-10, app.arrow.x, target.x+10)
     score = False
-    if target.x-5 <= app.aiarrow.x <= target.x+5:
-        print('inside')
-        print(target.y-target.rings*5, app.aiarrow.y, target.y+target.rings*5)
+    if len(app.aiTrajectory) > 2 and app.aiTrajectory[-1][0] <= target.x <= app.aiarrow.x:
         if target.y-target.rings*5 <= app.aiarrow.y <= target.y+target.rings*5:
             app.score += 20
             app.ypos = 0
@@ -219,7 +284,8 @@ def checkAIIfHit(app):
 
     elif app.aiarrow.x >= app.width-app.margin:
         app.ypos = 0 
-        print(app.aiTrajectory)
+        # app.aiTurn = False
+        # print(app.aiTrajectory)
     
     if score:
         target.generateRandomLocation(app.xRange, app.yRange)
@@ -227,23 +293,17 @@ def checkAIIfHit(app):
         app.aiTrajectory = []
         app.aiarrow.x, app.aiarrow.y = app.startPostion
         app.shootTimer = 0
-        app.shoot = False
-        app.aiTurn = False
         app.aiarrow.v0 = 0
-        app.level = 1
-        app.ypos = 1
-        app.timer = 0
-        app.score = 0
-        app.arrow.v0 = 0
+        app.aiLaunch = False
+        
 
 def levelOne(app):
     if app.ypos == 1 and app.shoot:
-        print('inside')
         app.shootTimer += app.timerDelay
         app.trajectoryCirlces.append((app.arrow.x, app.arrow.y))
         updateArrowPostion(app)
         checkIfHit(app)
-    print('outside')
+    
 
 def levelTwo(app):
     if app.ypos == 1 and app.shoot:
@@ -261,7 +321,7 @@ def levelThree(app):
         # updateTargetPosition(app)
         checkIfHit(app)
 
-# only changes y for now
+# only changes y 
 def updateTargetPosition(app):
     target = app.target1
     dyDown = target.y+target.rings*30+app.targetIncrement
@@ -270,15 +330,39 @@ def updateTargetPosition(app):
         app.targetIncrement = -app.targetIncrement
     else:
         target.y += app.targetIncrement
+    
+    if app.aiTurn and app.aiyposition != 0:
+        targety = target.y
+        speed = app.targetIncrement 
+        targetTime = 0
+        count = 0 
+        while not (app.aiyposition-10 <= targety <= app.aiyposition+10) and count <= 100:
+            # print(app.aiyposition-10, targety, app.aiyposition+10)
+            
+            dyDown = targety+target.rings*30+speed
+            dyUp = targety-target.rings*30+speed
+            if dyDown >= app.height - app.margin or dyUp <= app.margin:
+                speed = -speed
+            else:
+                targety += speed
+            targetTime += app.timerDelay
+            count += 1
+        # print('outside')
+        if count >= 100:
+            print('stuck')
+        if app.timeTime-app.timerDelay*2 <= targetTime <= app.timeTime+app.timerDelay*2:
+            app.aiLaunch = True
+            print('targetTime', targetTime)
+
 
 def checkIfHit(app):
     target = app.target1
     score = False
     # print(target.x-10, app.arrow.x, target.x+10)
-    if target.x-5 <= app.arrow.x <= target.x+5:
-        print('inside')
+    if len(app.trajectoryCirlces) > 2 and app.trajectoryCirlces[-1][0] <= target.x <= app.arrow.x:
+        # print('inside')
         
-        print(target.y-target.rings*5, app.arrow.y, target.y+target.rings*5)
+        # print(target.y-target.rings*5, app.arrow.y, target.y+target.rings*5)
         if target.y-target.rings*5 <= app.arrow.y <= target.y+target.rings*5:
             app.score += 20
             app.ypos = 0
@@ -303,7 +387,7 @@ def checkIfHit(app):
         app.shootTimer = 0
         app.shoot = False
         app.arrow.v0 = 0
-        app.aiTurn = False
+        # app.aiTurn = False
         
 
 def updateArrowPostionWithWind(app): 
@@ -323,12 +407,12 @@ def updateArrowPostionWithWind(app):
     if windQuadrant == 1 or windQuadrant == 4:
         wx = wind*math.cos(windAngle)
     else:
-        wy = -wind*math.sin(windAngle)
+        wx = -wind*math.cos(windAngle)
     
     
     vx = velocity * math.cos(angle)
-    vxw = velocity * math.cos(angle) - wx
-    vy = velocity * math.sin(angle) - wy
+    vxw = velocity * math.cos(angle) + wx
+    vy = velocity * math.sin(angle) + wy
     t = app.shootTimer/1000
     x = app.startPostion[0]
     y = app.startPostion[1]
@@ -336,7 +420,7 @@ def updateArrowPostionWithWind(app):
     dxw = x+vxw*t
     dx = x+vx*t
     dy = y-(vy*t - (a/2)*t**2)
-    print('dxw', dxw, 'dx', dx)
+    # print('dxw', dxw, 'dx', dx)
     app.arrow.dy = vy
     app.arrow.dx = vxw
     
@@ -367,7 +451,7 @@ def updateArrowPostion(app):
 
     if dy > y or dy < 0:
         app.ypos = 0
-        app.aiTurn = False
+        # app.aiTurn = False
 
 def mousePressed(app, event):
     if app.popupMode:
@@ -397,7 +481,22 @@ def mousePressed(app, event):
             app.babyAIpopup = True
             app.aiTurn = True
             
-    
+def aiPandA(app, powerRange, angleRange):
+    if findOptimalStationary(app, app.target1.x, app.target1.y) != None:
+        aipower, aiangle = findOptimalStationary(app, app.target1.x, app.target1.y)
+        
+        # print('ai', aipower, aiangle)
+        
+        aipower = random.randint(aipower-powerRange, aipower+powerRange)
+        aiangle = random.uniform(max(aiangle-app.incrementAngle*angleRange,0),
+                            min(math.pi/2, aiangle+app.incrementAngle*angleRange))
+                            
+        app.ypos = 1
+        app.aiarrow.angle = aiangle
+        app.aiarrow.findInitialSpeed(aipower)
+        # print('ai', aipower, aiangle)
+    else:
+        print('NONE')
 
 def keyPressed(app, event):
     # print('key pressed')
@@ -430,47 +529,20 @@ def keyPressed(app, event):
             if event.key == '1':
                 app.babyAILevel = 1
                 app.babyAIpopup = False
-                if findOptimalStationary(app) != None:
-                    aipower, aiangle = findOptimalStationary(app)
-                    
-                    print('ai', aipower, aiangle)
-                    
-                    aipower = random.randint(aipower-10, aipower+10)
-                    aiangle = random.uniform(max(aiangle-app.incrementAngle*2,0),
-                                        min(math.pi/2, aiangle+app.incrementAngle*2))
-                                        
-                    app.ypos = 1
-                    app.aiarrow.angle = aiangle
-                    app.aiarrow.findInitialSpeed(aipower)
-                    print('ai', aipower, aiangle)
-                else:
-                    print('NONE')
+
             if event.key == '2':
                 app.babyAILevel = 2
                 app.babyAIpopup = False
-                if findOptimalStationary(app) != None:
-                    aipower, aiangle = findOptimalStationary(app)
-                    
-                    print('ai', aipower, aiangle)
-                    
-                    aipower = random.randint(aipower-10, aipower+10)
-                    aiangle = random.uniform(max(aiangle-app.incrementAngle,0),
-                                        min(math.pi/2, aiangle+app.incrementAngle))
-                                        
-                    app.ypos = 1
-                    app.aiarrow.angle = aiangle
-                    app.aiarrow.findInitialSpeed(aipower)
-                    print('ai', aipower, aiangle)
-                else:
-                    print('NONE')
+                
             if event.key == '3':
                 app.babyAILevel = 3
 
         if app.arrow.v0 == 0 and not app.aiTurn:
             
             if event.key == 's':
-                
+                # print('ai shooot')
                 app.shoot = True
+                app.arrowPresent = True
                 app.ypos = 1
                 app.arrow.findInitialSpeed(app.power)
                 app.arrow.x = app.startPostion[0]
@@ -492,26 +564,33 @@ def keyPressed(app, event):
                     print("1")
                     app.level = 1
                     app.ypos = 1
-                    app.timer = 0
-                    app.score = 0
+                    app.timer = 40*1000
+                    app.score = 0 
+                    app.power = 50
+                    app.playerAngle = math.pi/4
                     app.arrowPresent = True
                     app.endLevelPopup = False
                 if event.key == '2':
                     app.level = 2
                     app.ypos = 1
-                    app.timer = 0
+                    app.timer = 40*1000
                     app.score = 0
+                    app.power = 50
+                    app.playerAngle = math.pi/4
                     app.arrowPresent = True
                     app.endLevelPopup = False
                 if event.key == '3':
                     app.arrowPresent = True
                     app.endLevelPopup = False
                     app.ypos = 1
-                    app.timer = 0
+                    app.timer = 40*1000
                     app.score = 0
-                    app.wind = random.randint(-20, 20)
+                    app.power = 50
+                    app.playerAngle = math.pi/4
+                    app.wind = random.randint(0, 30)
                     app.windAngle = random.uniform(0, math.pi/2)
                     app.angleQuadrant = random.randint(1, 4)
+                    print(app.windAngle, app.angleQuadrant, app.wind)
                     app.level = 3
         
 
@@ -585,6 +664,30 @@ def drawWind(app, canvas):
     x0 = app.width - app.margin
     y0 = app.margin*2
     canvas.create_text(x0, y0, text=f"Wind: {app.wind} m/s", anchor = 'e')
+    angle = app.windAngle
+    if app.angleQuadrant == 2:
+        angle = math.pi - angle
+    elif app.angleQuadrant == 3:
+        angle += math.pi
+    elif app.angleQuadrant == 4:
+        angle = math.pi * 2 - angle
+    # if windQuadrant == 1 or windQuadrant == 2:
+    #     wy = wind*math.sin(windAngle)
+    # else:
+    #     wy = -wind*math.sin(windAngle)
+
+    # if windQuadrant == 1 or windQuadrant == 4:
+    #     wx = wind*math.cos(windAngle)
+    # else:
+    #     wy = -wind*math.sin(windAngle)
+    
+    arrowL = 30
+    x0 = app.width-app.margin*3
+    y0 = app.margin*4
+    x1 = arrowL*math.cos(angle)+x0
+    y1 = y0-arrowL*math.sin(angle)
+    canvas.create_line(x0,y0,x1,y1, arrow=tk.LAST)
+
 
 def drawTimer(app, canvas):
     x0 = app.width - app.margin
@@ -612,7 +715,7 @@ def redrawAll1(app, canvas):
     drawScore(app, canvas)
     drawPower(app, canvas)
     drawTimer(app, canvas)
-    if app.wind != 0:
+    if app.level == 3:
         drawWind(app, canvas)
     if app.arrowPresent: 
         # drawArrow(app, canvas)
@@ -628,6 +731,7 @@ def redrawAll2(app, canvas):
 
     drawTarget1(app, canvas)
     drawAIScore(app, canvas)
+    drawTimer(app, canvas)
     if app.aiTrajectory != []:
         drawaiTrajectory(app, canvas)
 
