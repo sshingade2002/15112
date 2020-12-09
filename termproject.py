@@ -100,10 +100,13 @@ def appStarted(app):
     app.aiTurn = False
     app.targetLocations = set()
     app.lenLast = 0
-    app.airounds =  1
+    app.airounds =  0
     app.timeTime = 0
     app.aiLaunch = False
     app.aiyposition = 0
+    app.aiTimer = 0 
+    app.aiScore = 0
+    app.aiEndPopup = False
     
 
 def findOptimalStationary(app, targetx, targety):
@@ -162,29 +165,39 @@ def timerFired(app):
                 
                     
             if app.timer//1000 >= 60:
+                # playerscore = app.score
+                print(app.aiTimer, app.airounds)
+                if app.aiTimer == 1:
+                    app.aiTimer = -1 
+                    app.airounds += 1
+                    if app.airounds == 2:
+                        app.aiEndPopup = True
                 if not app.aiTurn:
                     app.ypos = 1
                     app.arrowPresent = True
                     app.aiarrow.v0 = 0
                     app.aiarrow.x, app.aiarrow.y = app.startPostion
                     app.aiTrajectory = []
+                    # app.score += playerscore
                 else:
                     app.arrowPresent = False
                     app.trajectoryCirlces = []
                     app.arrow.x, app.arrow.y = app.startPostion
                     app.shoot = False
                     app.arrow.v0 = 0
+                app.aiTimer += 1
 
                 app.target1.generateRandomLocation(app.xRange, app.yRange)
                 app.shootTimer = 0
                 app.arrow.v0 = 0
                 app.timer = 40*1000
                 app.aiTurn = not app.aiTurn
-                app.score = 0
+                # app.score = 0
                 app.targetLocations = set()
             app.timer += app.timerDelay
 
             if app.aiTurn:
+                
                 if app.aiarrow.v0 == 0 and app.babyAILevel == 1 and app.airounds > 0 :
                     findOpMoving(app)
                     # print(app.timeTime)
@@ -192,10 +205,12 @@ def timerFired(app):
                     if app.aiarrow.v0 == 0 and app.babyAILevel == 1:
                         aiPandA(app, 10, 2)
                     elif app.aiarrow.v0 == 0 and app.babyAILevel == 2:
-                        aiPandA(app, 10, 2)
+                        aiPandA(app, 10, 1)
+
                 if app.airounds > 0:
                     if app.aiLaunch:
                         levelOneai(app)
+
                         # app.aiLaunch = False
                 else:
                     levelOneai(app)
@@ -219,7 +234,13 @@ def timerFired(app):
 
 
 def levelOneai(app):
-    if app.ypos == 1 and app.aiTurn and app.aiLaunch:
+    if app.airounds > 0:
+        if app.aiLaunch:
+            app.shootTimer += app.timerDelay
+            app.aiTrajectory.append((app.aiarrow.x, app.aiarrow.y))
+            updateAIArrowPostion(app)
+            checkAIIfHit(app)
+    elif app.ypos == 1 and app.aiTurn:
         app.shootTimer += app.timerDelay
         app.aiTrajectory.append((app.aiarrow.x, app.aiarrow.y))
         updateAIArrowPostion(app)
@@ -255,7 +276,7 @@ def updateAIArrowPostion(app):
         # app.ypos = 1
         # app.timer = 55*1000
 
-        app.score = 0
+        # app.score = 0
         app.aiarrow.v0 = 0
         app.aiarrow.x, app.aiarrow.y = app.startPostion
         app.aiTrajectory = []
@@ -270,15 +291,15 @@ def checkAIIfHit(app):
     score = False
     if len(app.aiTrajectory) > 2 and app.aiTrajectory[-1][0] <= target.x <= app.aiarrow.x:
         if target.y-target.rings*5 <= app.aiarrow.y <= target.y+target.rings*5:
-            app.score += 20
+            app.aiScore += 20
             app.ypos = 0
             score = True
         elif target.y-target.rings*20 <= app.aiarrow.y <= target.y+target.rings*20:
-            app.score += 10
+            app.aiScore += 10
             app.ypos = 0
             score = True
         elif target.y - target.rings*30 <= app.aiarrow.y <= target.y + target.rings*30:
-            app.score += 5
+            app.aiScore += 5
             app.ypos = 0
             score = True
 
@@ -639,7 +660,7 @@ def drawaiTrajectory(app, canvas):
 def drawAIScore(app, canvas):
     x0 = app.margin
     y0 = app.margin
-    canvas.create_text(x0, y0, text=f"AI = {app.score}", anchor = 'w')
+    canvas.create_text(x0, y0, text=f"AI = {app.aiScore}", anchor = 'w')
 
 def drawAngle(app, canvas):
     angle = app.playerAngle
@@ -671,15 +692,6 @@ def drawWind(app, canvas):
         angle += math.pi
     elif app.angleQuadrant == 4:
         angle = math.pi * 2 - angle
-    # if windQuadrant == 1 or windQuadrant == 2:
-    #     wy = wind*math.sin(windAngle)
-    # else:
-    #     wy = -wind*math.sin(windAngle)
-
-    # if windQuadrant == 1 or windQuadrant == 4:
-    #     wx = wind*math.cos(windAngle)
-    # else:
-    #     wy = -wind*math.sin(windAngle)
     
     arrowL = 30
     x0 = app.width-app.margin*3
@@ -701,6 +713,11 @@ def drawTimer(app, canvas):
         drawString = '1:00'
 
     canvas.create_text(x0, y0, text="Timer "+drawString, anchor = 'e')
+
+def drawRounds(app, canvas):
+    x0 = app.margin
+    y0 = app.margin*2
+    canvas.create_text(x0, y0, text=f"Round {app.airounds}", anchor = 'w')
 
 def redrawAll1(app, canvas):
     x0 = app.startPostion[0]-10
@@ -732,6 +749,7 @@ def redrawAll2(app, canvas):
     drawTarget1(app, canvas)
     drawAIScore(app, canvas)
     drawTimer(app, canvas)
+    # drawRounds(app, canvas)
     if app.aiTrajectory != []:
         drawaiTrajectory(app, canvas)
 
@@ -807,6 +825,16 @@ def drawbabAIpopup(app, canvas):
     levelstrings = '''Press 1 to play Easy Mode \nPress 2 to play Hard Mode\n'''
     canvas.create_text(x0+(x1-x0)/2, 30+y0+(y1-y0)/2, text = levelstrings, anchor = 's')
 
+def drawbabAIENDpopup(app, canvas):
+    x0 = 200
+    y0 = 200
+    x1 = app.width-x0
+    y1 = app.height - 2*y0
+
+    canvas.create_rectangle(x0,y0,x1,y1, fill = 'gray')
+    canvas.create_text(x0+(x1-x0)/2, y0+(y1-y0)/2-50, text = f'Finished Level AI rounds. AI score:{app.aiScore} Score: {app.score}')
+    levelstrings = 'click "o" to return to mode selection'
+    canvas.create_text(x0+(x1-x0)/2, 30+y0+(y1-y0)/2, text = levelstrings, anchor = 's')
 def redrawAll(app, canvas):
     # print(app.waitingForKeyPress, app.popupMode, app.startLevelPopup, app.endLevelPopup)
     if app.waitingForKeyPress:   
@@ -819,8 +847,12 @@ def redrawAll(app, canvas):
         drawEndLevelPopup(app, canvas)
     elif app.babyAIpopup:
         drawbabAIpopup(app, canvas)
+    elif app.aiEndPopup:
+        drawbabAIENDpopup(app, canvas)
     else:
         if app.babyAI and app.aiTurn:
+            drawRounds(app, canvas)
+            
             redrawAll2(app, canvas)
         else:
             redrawAll1(app, canvas)
