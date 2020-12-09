@@ -10,3 +10,4 @@ No libraries needed
 
 # A list of any shortcut commands that exist
 Click 'o' to change modes
+Click 'r' to restart game
