@@ -130,7 +130,6 @@ def findOptimalStationary(app, targetx, targety):
                     time += app.timerDelay
                     t = time/1000
                     dx = x+vx*t
-                    # print('dx', dx, 'targetx', targetx)
                     if targetx-10 <= dx <= targetx+10:
                         break
 
@@ -152,7 +151,6 @@ def findOpMoving(app):
     app.ypos = 1
     app.aiarrow.angle = oangel
     app.aiarrow.findInitialSpeed(opower)
-    print(app.timeTime)
     
 
 
@@ -165,8 +163,6 @@ def timerFired(app):
                 
                     
             if app.timer//1000 >= 60:
-                # playerscore = app.score
-                print(app.aiTimer, app.airounds)
                 if app.aiTimer == 1:
                     app.aiTimer = -1 
                     app.airounds += 1
@@ -201,7 +197,6 @@ def timerFired(app):
                 
                 if app.aiarrow.v0 == 0 and app.babyAILevel == 1 and app.airounds > 0 :
                     findOpMoving(app)
-                    # print(app.timeTime)
                 else:
                     if app.aiarrow.v0 == 0 and app.babyAILevel == 1:
                         aiPandA(app, 10, 2)
@@ -857,7 +852,7 @@ def drawbabAIENDpopup(app, canvas):
     levelstrings = 'click "o" to return to mode selection'
     canvas.create_text(x0+(x1-x0)/2, 30+y0+(y1-y0)/2, text = levelstrings, anchor = 's')
 def redrawAll(app, canvas):
-    # print(app.waitingForKeyPress, app.popupMode, app.startLevelPopup, app.endLevelPopup)
+   
     if app.waitingForKeyPress:   
         drawSpashScreen(app, canvas)
     elif app.popupMode:
