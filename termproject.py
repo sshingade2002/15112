@@ -97,7 +97,7 @@ def appStarted(app):
     app.babyAIpopup = True
     app.aiTrajectory = []
     app.aiarrow = Arrow(app.startPostion[0], app.startPostion[1], 0)
-    app.aiTurn = False
+    app.aiTurn = True
     app.targetLocations = set()
     app.lenLast = 0
     app.airounds =  0
@@ -172,13 +172,16 @@ def timerFired(app):
                     app.airounds += 1
                     if app.airounds == 2:
                         app.aiEndPopup = True
+                        app.babyAI = False
+                        app.aiTurn = False
+                        app.airounds = 0
                 if not app.aiTurn:
                     app.ypos = 1
                     app.arrowPresent = True
                     app.aiarrow.v0 = 0
                     app.aiarrow.x, app.aiarrow.y = app.startPostion
                     app.aiTrajectory = []
-                    # app.score += playerscore
+                    #
                 else:
                     app.arrowPresent = False
                     app.trajectoryCirlces = []
@@ -190,10 +193,8 @@ def timerFired(app):
                 app.target1.generateRandomLocation(app.xRange, app.yRange)
                 app.shootTimer = 0
                 app.arrow.v0 = 0
-                app.timer = 40*1000
+                app.timer = 55*1000
                 app.aiTurn = not app.aiTurn
-                # app.score = 0
-                app.targetLocations = set()
             app.timer += app.timerDelay
 
             if app.aiTurn:
@@ -539,26 +540,46 @@ def keyPressed(app, event):
         if event.key == 'r':
             appStarted(app)
         if event.key == 'o':
+            app.aiEndPopup = False
             app.popupMode = not app.popupMode
             if app.popupMode:
                 app.startLevelPopup = False
                 app.endLevelPopup = False
 
-        if app.babyAI and app.aiTurn:
+        if app.babyAI :
             aipower = 0
             aiangle = 0
-            if event.key == '1':
-                app.babyAILevel = 1
-                app.babyAIpopup = False
+            # app.aiTurn = True
+            if app.aiTurn:
+                if event.key == '1':
+                    app.babyAILevel = 1
+                    app.babyAIpopup = False
 
-            if event.key == '2':
-                app.babyAILevel = 2
-                app.babyAIpopup = False
+                if event.key == '2':
+                    app.babyAILevel = 2
+                    app.babyAIpopup = False
+            else:
+                if event.key == 's':
+                    # print('ai shooot')
+                    app.shoot = True
+                    app.arrowPresent = True
+                    app.ypos = 1
+                    app.arrow.findInitialSpeed(app.power)
+                    app.arrow.x = app.startPostion[0]
+                    app.arrow.y = app.startPostion[1]
+                if event.key == 'Up' :
+                    updateArrowAngle(app, 'Up')
+                if event.key == 'Down':
+                    updateArrowAngle(app, 'Down')
+                if event.key == 'Right':
+                    if app.power < 100:
+                        app.power += app.powerInc
+                if event.key == 'Left':
+                    if app.power > 10:
+                        app.power -= app.powerInc
+            
                 
-            if event.key == '3':
-                app.babyAILevel = 3
-
-        if app.arrow.v0 == 0 and not app.aiTurn:
+        if app.arrow.v0 == 0 and not app.babyAI:
             
             if event.key == 's':
                 # print('ai shooot')
@@ -578,8 +599,6 @@ def keyPressed(app, event):
             if event.key == 'Left':
                 if app.power > 10:
                     app.power -= app.powerInc
-            if event.key == 'a':
-                app.babyAI = True
             else:
                 if event.key == '1':
                     print("1")
@@ -613,7 +632,9 @@ def keyPressed(app, event):
                     app.angleQuadrant = random.randint(1, 4)
                     print(app.windAngle, app.angleQuadrant, app.wind)
                     app.level = 3
-        
+
+
+    
 
 def updateArrowAngle(app, direction):
     if direction == 'Down':
@@ -717,7 +738,7 @@ def drawTimer(app, canvas):
 def drawRounds(app, canvas):
     x0 = app.margin
     y0 = app.margin*2
-    canvas.create_text(x0, y0, text=f"Round {app.airounds}", anchor = 'w')
+    canvas.create_text(x0, y0, text=f"Round {app.airounds+1}", anchor = 'w')
 
 def redrawAll1(app, canvas):
     x0 = app.startPostion[0]-10
@@ -855,6 +876,12 @@ def redrawAll(app, canvas):
             
             redrawAll2(app, canvas)
         else:
+            if app.babyAI:
+                drawRounds(app, canvas)
+                x0 = app.margin*5
+                y0 = app.margin
+                canvas.create_text(x0, y0, text=f"AI = {app.aiScore}", anchor = 'w')
+                
             redrawAll1(app, canvas)
 
 
